@@ -9,3 +9,4 @@ sandbox
 .agents/
 .mcp.json
 .roughdraft-state
+/roughdraft.json
