@@ -32,7 +32,7 @@ describe("CriticMarkup comments", () => {
 
   it("preserves inline code nested inside a comment anchor", () => {
     const input =
-      "Check {==`roughdraft open`==}{>>Make sure this command is visible<<}{@id:cmt-code;by:user;at:2024-01-15T10:31:00.000Z@} before sharing.\n";
+      'Check {==`roughdraft open`==}{>>Make sure this command is visible<<}{id="cmt-code" by="user" at="2024-01-15T10:31:00.000Z"} before sharing.\n';
 
     const { doc, comments } = criticMarkdownToEditorState(input);
     const paragraph = doc.content?.[0];
