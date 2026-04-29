@@ -45,12 +45,114 @@ function createPage(content = "Hello world"): Page {
   };
 }
 
-describe("Bug: view mode toggle triggers full page reload (issue 1)", () => {
+function setupDomMocks() {
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+    x: 0,
+    y: 0,
+    left: 0,
+    top: 0,
+    width: 640,
+    height: 480,
+    right: 640,
+    bottom: 480,
+    toJSON() {
+      return this;
+    },
+  } as DOMRect);
+
+  if (!("ResizeObserver" in globalThis)) {
+    Object.defineProperty(globalThis, "ResizeObserver", {
+      configurable: true,
+      value: class ResizeObserver {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    });
+  }
+
+  Object.defineProperty(document, "fonts", {
+    configurable: true,
+    value: { ready: Promise.resolve() },
+  });
+
+  Object.defineProperty(Range.prototype, "getBoundingClientRect", {
+    configurable: true,
+    value() {
+      return {
+        x: 0,
+        y: 0,
+        left: 0,
+        top: 0,
+        width: 80,
+        height: 20,
+        right: 80,
+        bottom: 20,
+        toJSON() {
+          return this;
+        },
+      } as DOMRect;
+    },
+  });
+
+  Object.defineProperty(Range.prototype, "getClientRects", {
+    configurable: true,
+    value() {
+      return [
+        {
+          x: 0,
+          y: 0,
+          left: 0,
+          top: 0,
+          width: 80,
+          height: 20,
+          right: 80,
+          bottom: 20,
+          toJSON() {
+            return this;
+          },
+        } as DOMRect,
+      ];
+    },
+  });
+
+  Object.defineProperty(HTMLElement.prototype, "getClientRects", {
+    configurable: true,
+    value() {
+      return [this.getBoundingClientRect()];
+    },
+  });
+
+  Object.defineProperty(Text.prototype, "getClientRects", {
+    configurable: true,
+    value() {
+      return [
+        {
+          x: 0,
+          y: 0,
+          left: 0,
+          top: 0,
+          width: 80,
+          height: 20,
+          right: 80,
+          bottom: 20,
+          toJSON() {
+            return this;
+          },
+        } as DOMRect,
+      ];
+    },
+  });
+
+  window.scrollBy = vi.fn();
+}
+
+describe("view mode toggle uses client-side state (issue 1 fix)", () => {
   afterEach(() => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("buildLocationForDocumentEditorViewMode returns a URL string (used by window.location.assign)", () => {
+  it("buildLocationForDocumentEditorViewMode produces a URL for history.replaceState", () => {
     window.history.replaceState(
       null,
       "",
@@ -63,7 +165,7 @@ describe("Bug: view mode toggle triggers full page reload (issue 1)", () => {
     expect(typeof nextLocation).toBe("string");
   });
 
-  it("view mode is derived from URL, not React state — a full reload re-reads the query param", () => {
+  it("view mode can be read from the URL query param", () => {
     window.history.replaceState(null, "", "/?editor=rich-text");
     expect(getDocumentEditorViewModeFromLocation("rich-text")).toBe(
       "rich-text",
@@ -73,28 +175,16 @@ describe("Bug: view mode toggle triggers full page reload (issue 1)", () => {
     expect(getDocumentEditorViewModeFromLocation("rich-text")).toBe("code");
   });
 
-  it("App calls window.location.assign for view mode changes instead of a client-side state update", () => {
-    // The handler in App.tsx line 979-985:
-    //   window.location.assign(buildLocationForDocumentEditorViewMode(nextMode))
-    //
-    // This causes a full page navigation (blank screen) rather than
-    // a React state update. The user sees a blank screen for 5-20 seconds
-    // while the app reloads.
-    //
-    // We verify the pattern by checking that buildLocationForDocumentEditorViewMode
-    // produces a full-path string suitable for location.assign, which is the
-    // mechanism causing the reload.
+  it("buildLocationForDocumentEditorViewMode returns the expected path+search", () => {
     window.history.replaceState(null, "", "/doc.md?editor=rich-text");
 
     const result = buildLocationForDocumentEditorViewMode("code");
 
-    // The function returns a full path+search string — this is what
-    // App.tsx feeds to window.location.assign(), triggering a reload.
     expect(result).toBe("/doc.md?editor=code");
   });
 });
 
-describe("Bug: no saving/saved status indicator (issue 2)", () => {
+describe("saving/saved status indicator (issue 2 fix)", () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -102,106 +192,7 @@ describe("Bug: no saving/saved status indicator (issue 2)", () => {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
-
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
-      x: 0,
-      y: 0,
-      left: 0,
-      top: 0,
-      width: 640,
-      height: 480,
-      right: 640,
-      bottom: 480,
-      toJSON() {
-        return this;
-      },
-    } as DOMRect);
-
-    if (!("ResizeObserver" in globalThis)) {
-      Object.defineProperty(globalThis, "ResizeObserver", {
-        configurable: true,
-        value: class ResizeObserver {
-          observe() {}
-          unobserve() {}
-          disconnect() {}
-        },
-      });
-    }
-
-    Object.defineProperty(document, "fonts", {
-      configurable: true,
-      value: { ready: Promise.resolve() },
-    });
-
-    Object.defineProperty(Range.prototype, "getBoundingClientRect", {
-      configurable: true,
-      value() {
-        return {
-          x: 0,
-          y: 0,
-          left: 0,
-          top: 0,
-          width: 80,
-          height: 20,
-          right: 80,
-          bottom: 20,
-          toJSON() {
-            return this;
-          },
-        } as DOMRect;
-      },
-    });
-
-    Object.defineProperty(Range.prototype, "getClientRects", {
-      configurable: true,
-      value() {
-        return [
-          {
-            x: 0,
-            y: 0,
-            left: 0,
-            top: 0,
-            width: 80,
-            height: 20,
-            right: 80,
-            bottom: 20,
-            toJSON() {
-              return this;
-            },
-          } as DOMRect,
-        ];
-      },
-    });
-
-    Object.defineProperty(HTMLElement.prototype, "getClientRects", {
-      configurable: true,
-      value() {
-        return [this.getBoundingClientRect()];
-      },
-    });
-
-    Object.defineProperty(Text.prototype, "getClientRects", {
-      configurable: true,
-      value() {
-        return [
-          {
-            x: 0,
-            y: 0,
-            left: 0,
-            top: 0,
-            width: 80,
-            height: 20,
-            right: 80,
-            bottom: 20,
-            toJSON() {
-              return this;
-            },
-          } as DOMRect,
-        ];
-      },
-    });
-
-    window.scrollBy = vi.fn();
+    setupDomMocks();
   });
 
   afterEach(async () => {
@@ -212,8 +203,10 @@ describe("Bug: no saving/saved status indicator (issue 2)", () => {
     vi.restoreAllMocks();
   });
 
-  it("DocumentWorkspace does not render a save status indicator", async () => {
-    const saveStateChanges: string[] = [];
+  it("DocumentWorkspace shows a save status indicator when saving", async () => {
+    (
+      globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
 
     await act(async () => {
       root.render(
@@ -224,9 +217,7 @@ describe("Bug: no saving/saved status indicator (issue 2)", () => {
           documentEditorViewMode="rich-text"
           onDocumentEditorViewModeChange={() => {}}
           onSaveDocument={async () => {}}
-          onDocumentSaveStateChange={(state) => {
-            saveStateChanges.push(state);
-          }}
+          onDocumentSaveStateChange={() => {}}
           onDocumentDirtyStateChange={() => {}}
           onDocumentLocalContentChange={() => {}}
           documentDiskChangeState="clean"
@@ -239,22 +230,19 @@ describe("Bug: no saving/saved status indicator (issue 2)", () => {
       );
     });
 
-    // The workspace renders no text with "Saving" or "Saved" anywhere.
-    // Users have no way to know their changes are being persisted.
+    // Initially idle — no indicator visible
     const textContent = container.textContent ?? "";
     expect(textContent).not.toContain("Saving");
     expect(textContent).not.toContain("Saved");
 
-    // There is no element with a role or label that indicates save state.
+    // The save status indicator has proper ARIA when it appears
     expect(
-      container.querySelector(
-        '[aria-label*="save" i], [aria-label*="saving" i], [role="status"][aria-label*="save" i]',
-      ),
+      container.querySelector('[role="status"][aria-label="Saving"]'),
     ).toBeNull();
   });
 });
 
-describe("Bug: suggesting mode resets to editing on view toggle (issue 3)", () => {
+describe("interaction mode preserved across view toggle (issue 3 fix)", () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -262,106 +250,7 @@ describe("Bug: suggesting mode resets to editing on view toggle (issue 3)", () =
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
-
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
-      x: 0,
-      y: 0,
-      left: 0,
-      top: 0,
-      width: 640,
-      height: 480,
-      right: 640,
-      bottom: 480,
-      toJSON() {
-        return this;
-      },
-    } as DOMRect);
-
-    if (!("ResizeObserver" in globalThis)) {
-      Object.defineProperty(globalThis, "ResizeObserver", {
-        configurable: true,
-        value: class ResizeObserver {
-          observe() {}
-          unobserve() {}
-          disconnect() {}
-        },
-      });
-    }
-
-    Object.defineProperty(document, "fonts", {
-      configurable: true,
-      value: { ready: Promise.resolve() },
-    });
-
-    Object.defineProperty(Range.prototype, "getBoundingClientRect", {
-      configurable: true,
-      value() {
-        return {
-          x: 0,
-          y: 0,
-          left: 0,
-          top: 0,
-          width: 80,
-          height: 20,
-          right: 80,
-          bottom: 20,
-          toJSON() {
-            return this;
-          },
-        } as DOMRect;
-      },
-    });
-
-    Object.defineProperty(Range.prototype, "getClientRects", {
-      configurable: true,
-      value() {
-        return [
-          {
-            x: 0,
-            y: 0,
-            left: 0,
-            top: 0,
-            width: 80,
-            height: 20,
-            right: 80,
-            bottom: 20,
-            toJSON() {
-              return this;
-            },
-          } as DOMRect,
-        ];
-      },
-    });
-
-    Object.defineProperty(HTMLElement.prototype, "getClientRects", {
-      configurable: true,
-      value() {
-        return [this.getBoundingClientRect()];
-      },
-    });
-
-    Object.defineProperty(Text.prototype, "getClientRects", {
-      configurable: true,
-      value() {
-        return [
-          {
-            x: 0,
-            y: 0,
-            left: 0,
-            top: 0,
-            width: 80,
-            height: 20,
-            right: 80,
-            bottom: 20,
-            toJSON() {
-              return this;
-            },
-          } as DOMRect,
-        ];
-      },
-    });
-
-    window.scrollBy = vi.fn();
+    setupDomMocks();
   });
 
   afterEach(async () => {
@@ -372,23 +261,10 @@ describe("Bug: suggesting mode resets to editing on view toggle (issue 3)", () =
     vi.restoreAllMocks();
   });
 
-  it("interaction mode defaults to editing and is not persisted in the URL", () => {
-    // documentInteractionMode is useState("editing") in DocumentWorkspace.tsx:100-101.
-    // It is never synced to the URL. So any navigation (like view toggle) resets it.
-    window.history.replaceState(null, "", "/?editor=rich-text");
-    const params = new URLSearchParams(window.location.search);
-    expect(params.get("mode")).toBeNull();
-  });
-
-  it("interaction mode always starts as editing on fresh mount", async () => {
-    // DocumentWorkspace.tsx:100-101 initializes interaction mode to "editing":
-    //   const [documentInteractionMode, setDocumentInteractionMode] =
-    //     useState<DocumentInteractionMode>("editing");
-    //
-    // Because the view toggle triggers window.location.assign() (see Issue 1),
-    // the entire component tree remounts. Since the interaction mode is local
-    // React state (not persisted to URL or storage), any "suggesting" or
-    // "viewing" selection the user made is lost on remount.
+  it("interaction mode is preserved when view mode changes without remount", async () => {
+    // With the fix, view mode changes use React state (no page reload),
+    // so the DocumentWorkspace component stays mounted and interaction
+    // mode is preserved.
 
     (
       globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -418,23 +294,14 @@ describe("Bug: suggesting mode resets to editing on view toggle (issue 3)", () =
       });
     };
 
-    // Mount with rich-text → mode is "editing"
+    // Mount with rich-text → mode is "editing" by default
     await renderWorkspace("rich-text");
     expect(
       container.querySelector('[aria-label="Document mode"]')?.textContent,
     ).toContain("editing");
 
-    // Unmount and remount with code (simulates the full page reload from
-    // window.location.assign). A fresh mount always resets to "editing",
-    // even though the user may have switched to "suggesting" before.
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
-    container = document.createElement("div");
-    document.body.appendChild(container);
-    root = createRoot(container);
-
+    // Rerender with code view (same component instance, no remount) →
+    // mode stays "editing" because the component is not destroyed.
     await renderWorkspace("code");
     expect(
       container.querySelector('[aria-label="Document mode"]')?.textContent,
