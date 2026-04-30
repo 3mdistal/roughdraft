@@ -1293,3 +1293,176 @@ describe("cli", () => {
     expect(result.server.port).toBe(ROUGHDRAFT_DEFAULT_PORT + 1);
   });
 });
+
+describe("runCli open in remote mode", () => {
+  let tempDir: string;
+  let projectDir: string;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "roughdraft-cli-remote-"));
+    projectDir = path.join(tempDir, "project");
+    fs.mkdirSync(projectDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  async function startRemoteHost(): Promise<{
+    url: string;
+    close: () => Promise<void>;
+  }> {
+    const { app } = createApp({
+      homeDir: tempDir,
+      staticDirPath: tempDir,
+    });
+    const server = createHttpServer(app);
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", () => resolve()),
+    );
+    const address = server.address();
+    if (!address || typeof address === "string") {
+      throw new Error("Failed to bind remote host");
+    }
+    return {
+      url: `http://127.0.0.1:${address.port}`,
+      close: () =>
+        new Promise<void>((resolve) => {
+          server.closeAllConnections?.();
+          server.close(() => resolve());
+        }),
+    };
+  }
+
+  it("prints register failure and exits 1 when the remote host is unreachable", async () => {
+    const filePath = path.join(projectDir, "draft.md");
+    fs.writeFileSync(filePath, "# hello\n");
+
+    const logs: string[] = [];
+    const errors: string[] = [];
+
+    const exitCode = await runCli(["open", filePath], {
+      env: { ROUGHDRAFT_HOST: "http://127.0.0.1:1" },
+      cwd: projectDir,
+      log: (m) => logs.push(m),
+      error: (m) => errors.push(m),
+      openUrl: () => "disabled",
+      resolveUpdateStatus: async () => ({
+        packageName: "roughdraft",
+        currentVersion: "0.1.0",
+        latestVersion: "0.1.0",
+        updateAvailable: false,
+        updateCommand: "",
+      }),
+    });
+
+    expect(exitCode).toBe(1);
+    expect(errors.join("\n")).toContain("Could not register remote session");
+  });
+
+  it("rejects non-.md targets in remote mode without contacting the host", async () => {
+    const filePath = path.join(projectDir, "notes.txt");
+    fs.writeFileSync(filePath, "hello");
+
+    const errors: string[] = [];
+    let fetchCalls = 0;
+
+    const exitCode = await runCli(["open", filePath], {
+      env: { ROUGHDRAFT_HOST: "http://127.0.0.1:1" },
+      cwd: projectDir,
+      log: () => {},
+      error: (m) => errors.push(m),
+      openUrl: () => "disabled",
+      fetchImpl: async () => {
+        fetchCalls += 1;
+        return new Response("", { status: 200 });
+      },
+      resolveUpdateStatus: async () => ({
+        packageName: "roughdraft",
+        currentVersion: "0.1.0",
+        latestVersion: "0.1.0",
+        updateAvailable: false,
+        updateCommand: "",
+      }),
+    });
+
+    expect(exitCode).toBe(1);
+    expect(fetchCalls).toBe(0);
+    expect(errors.join("\n")).toContain("can only open .md files");
+  });
+
+  it("registers a session, opens the viewer URL, and writes save events to disk", { timeout: 15_000 }, async () => {
+    const remote = await startRemoteHost();
+    try {
+      const filePath = path.join(projectDir, "draft.md");
+      fs.writeFileSync(filePath, "before\n");
+
+      const logs: string[] = [];
+      const errors: string[] = [];
+      let openedUrl: string | null = null;
+
+      const cliPromise = runCli(["open", filePath], {
+        env: { ROUGHDRAFT_HOST: remote.url },
+        cwd: projectDir,
+        log: (m) => logs.push(m),
+        error: (m) => errors.push(m),
+        openUrl: (url) => {
+          openedUrl = url;
+          return "disabled";
+        },
+        resolveUpdateStatus: async () => ({
+          packageName: "roughdraft",
+          currentVersion: "0.1.0",
+          latestVersion: "0.1.0",
+          updateAvailable: false,
+          updateCommand: "",
+        }),
+      });
+
+      // Wait for the CLI to register and open the SSE channel.
+      const deadline = Date.now() + 4000;
+      while (openedUrl === null && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      expect(openedUrl).not.toBeNull();
+      const sessionId = new URL(openedUrl as unknown as string).searchParams.get(
+        "session",
+      );
+      expect(sessionId).toBeTruthy();
+
+      // Wait until the server actually has the SSE client connected before PUTting.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Trigger a save event by PUTting new content.
+      const putResponse = await fetch(
+        `${remote.url}/api/remote-document/${sessionId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: "after\n" }),
+        },
+      );
+      expect(putResponse.status).toBe(200);
+
+      // Wait until the file on disk reflects the save.
+      const writeDeadline = Date.now() + 4000;
+      while (
+        fs.readFileSync(filePath, "utf-8") !== "after\n" &&
+        Date.now() < writeDeadline
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      expect(fs.readFileSync(filePath, "utf-8")).toBe("after\n");
+
+      // Closing the server ends the SSE stream and lets the CLI exit cleanly.
+      await remote.close();
+      const exitCode = await cliPromise;
+      expect(exitCode).toBe(0);
+      expect(logs.some((m) => m.includes("Opened remote Roughdraft session"))).toBe(
+        true,
+      );
+    } finally {
+      await remote.close();
+    }
+  });
+});

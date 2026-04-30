@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -785,6 +786,215 @@ function buildTargetUrl(baseUrl: string, openPath: string): string {
   url.pathname = "/";
   url.searchParams.set("path", openPath);
   return url.toString();
+}
+
+interface SseEvent {
+  event: string;
+  data: string;
+}
+
+interface ParsedSseChunk {
+  events: SseEvent[];
+  remainder: string;
+}
+
+function parseSseEvents(buffer: string): ParsedSseChunk {
+  const events: SseEvent[] = [];
+  let cursor = 0;
+  while (true) {
+    const blank = buffer.indexOf("\n\n", cursor);
+    if (blank === -1) break;
+    const block = buffer.slice(cursor, blank);
+    let eventName = "message";
+    const dataLines: string[] = [];
+    for (const line of block.split("\n")) {
+      if (line.startsWith("event: ")) {
+        eventName = line.slice(7).trim();
+      } else if (line.startsWith("data: ")) {
+        dataLines.push(line.slice(6));
+      }
+    }
+    if (dataLines.length > 0) {
+      events.push({ event: eventName, data: dataLines.join("\n") });
+    }
+    cursor = blank + 2;
+  }
+  return { events, remainder: buffer.slice(cursor) };
+}
+
+async function atomicWriteFile(
+  targetPath: string,
+  content: string,
+): Promise<void> {
+  const tmpPath = `${targetPath}.tmp-${process.pid}-${Date.now()}`;
+  await fs.promises.writeFile(tmpPath, content);
+  await fs.promises.rename(tmpPath, targetPath);
+}
+
+interface RemoteOpenOptions {
+  host: string;
+  openPath: string;
+  noOpen: boolean;
+  printUrl: boolean;
+  json: boolean;
+}
+
+async function runRemoteOpen(
+  deps: CliDependencies,
+  options: RemoteOpenOptions,
+): Promise<number> {
+  const baseUrl = options.host.replace(/\/$/, "");
+
+  let content: string;
+  try {
+    content = await fs.promises.readFile(options.openPath, "utf-8");
+  } catch (error) {
+    deps.error(
+      error instanceof Error
+        ? error.message
+        : `Could not read ${options.openPath}`,
+    );
+    return 1;
+  }
+
+  const sessionId = crypto.randomUUID();
+
+  let registerResponse: Response;
+  try {
+    registerResponse = await deps.fetchImpl(`${baseUrl}/api/remote-document`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId,
+        originPath: options.openPath,
+        content,
+      }),
+    });
+  } catch (error) {
+    deps.error(
+      `Could not register remote session at ${baseUrl}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return 1;
+  }
+
+  if (!registerResponse.ok) {
+    deps.error(
+      `Remote host rejected the session register (HTTP ${registerResponse.status}).`,
+    );
+    return 1;
+  }
+
+  const registerPayload = (await registerResponse.json()) as {
+    id?: string;
+    version?: string;
+    viewerUrl?: string;
+  };
+
+  const viewerUrl =
+    typeof registerPayload.viewerUrl === "string"
+      ? registerPayload.viewerUrl
+      : `${baseUrl}/?session=${encodeURIComponent(sessionId)}`;
+
+  if (options.printUrl) {
+    deps.log(viewerUrl);
+    return 0;
+  }
+
+  if (!options.noOpen && deps.env.ROUGHDRAFT_NO_OPEN !== "1") {
+    deps.openUrl(viewerUrl);
+  }
+
+  if (options.json) {
+    emitJson(deps.log, {
+      opened: true,
+      mode: "remote",
+      sessionId,
+      url: viewerUrl,
+      host: baseUrl,
+      path: options.openPath,
+    });
+  } else {
+    deps.log(`Opened remote Roughdraft session: ${viewerUrl}`);
+    deps.log(`Holding session open for ${options.openPath}. Ctrl-C to exit.`);
+  }
+
+  let eventsResponse: Response;
+  try {
+    eventsResponse = await deps.fetchImpl(
+      `${baseUrl}/api/remote-document/${encodeURIComponent(sessionId)}/events`,
+      { headers: { Accept: "text/event-stream" } },
+    );
+  } catch (error) {
+    deps.error(
+      `Lost connection to remote host: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return 1;
+  }
+
+  if (!eventsResponse.ok || !eventsResponse.body) {
+    deps.error(
+      `Could not open remote event stream (HTTP ${eventsResponse.status}).`,
+    );
+    return 1;
+  }
+
+  const reader = eventsResponse.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await reader.read();
+      } catch {
+        break;
+      }
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+      const parsed = parseSseEvents(buffer);
+      buffer = parsed.remainder;
+      for (const event of parsed.events) {
+        if (event.event === "save") {
+          let payload: { content?: unknown } = {};
+          try {
+            payload = JSON.parse(event.data) as { content?: unknown };
+          } catch {
+            continue;
+          }
+          if (typeof payload.content === "string") {
+            try {
+              await atomicWriteFile(options.openPath, payload.content);
+              if (!options.json) {
+                deps.log(`Saved ${options.openPath} from remote.`);
+              }
+            } catch (error) {
+              deps.error(
+                `Failed to write ${options.openPath}: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              );
+            }
+          }
+        }
+      }
+    }
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // The stream may already be in an errored state; ignore.
+    }
+  }
+
+  if (!options.json) {
+    deps.log("Remote session disconnected.");
+  }
+  return 0;
 }
 
 async function sendOpenRequestToExistingWindow(
@@ -1966,6 +2176,21 @@ export async function runCli(
       }
 
       const { projectDir, openPath } = resolvedTarget;
+
+      const remoteHost =
+        typeof deps.env.ROUGHDRAFT_HOST === "string"
+          ? deps.env.ROUGHDRAFT_HOST.trim()
+          : "";
+      if (remoteHost.length > 0) {
+        return runRemoteOpen(deps, {
+          host: remoteHost,
+          openPath,
+          noOpen: options.noOpen,
+          printUrl: options.printUrl,
+          json,
+        });
+      }
+
       const liveDevFrontendUrl = await resolveLiveDevFrontendBaseUrl(deps);
       let result: EnsureRunningResult | null = null;
       let baseUrl: string;
