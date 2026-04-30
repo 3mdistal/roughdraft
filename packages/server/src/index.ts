@@ -109,9 +109,7 @@ function remoteSessionVersion(content: string): string {
   return `${hash}:${crypto.randomUUID()}`;
 }
 
-function remoteSessionView(
-  session: RemoteSession,
-): {
+function remoteSessionView(session: RemoteSession): {
   id: string;
   originPath: string;
   content: string;
@@ -705,7 +703,8 @@ export function createApp(options: CreateAppOptions = {}): CreateAppResult {
   app.post("/api/remote-document", (req, res) => {
     const payload = req.body as RemoteDocumentRegisterPayload;
     const sessionId =
-      typeof payload.sessionId === "string" && payload.sessionId.trim().length > 0
+      typeof payload.sessionId === "string" &&
+      payload.sessionId.trim().length > 0
         ? payload.sessionId.trim()
         : null;
     const originPath =
@@ -713,7 +712,8 @@ export function createApp(options: CreateAppOptions = {}): CreateAppResult {
       payload.originPath.trim().length > 0
         ? payload.originPath.trim()
         : null;
-    const content = typeof payload.content === "string" ? payload.content : null;
+    const content =
+      typeof payload.content === "string" ? payload.content : null;
 
     if (!sessionId || !originPath || content === null) {
       res
@@ -767,7 +767,8 @@ export function createApp(options: CreateAppOptions = {}): CreateAppResult {
     }
 
     const payload = req.body as RemoteDocumentSavePayload;
-    const content = typeof payload.content === "string" ? payload.content : null;
+    const content =
+      typeof payload.content === "string" ? payload.content : null;
 
     if (content === null) {
       res.status(400).json({ error: "content is required" });

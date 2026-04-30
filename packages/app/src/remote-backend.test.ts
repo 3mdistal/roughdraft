@@ -1,11 +1,4 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { RemoteBackend } from "./remote-backend";
 import { MarkdownFileConflictError } from "./storage";
 
@@ -44,25 +37,24 @@ describe("RemoteBackend", () => {
   });
 
   it("getMarkdownFile fetches /api/remote-document/:id and returns the page", async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          id: "session-1",
-          originPath: "/work/draft.md",
-          content: "v2",
-          version: "version-2",
-        }),
-        { status: 200 },
-      ),
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id: "session-1",
+            originPath: "/work/draft.md",
+            content: "v2",
+            version: "version-2",
+          }),
+          { status: 200 },
+        ),
     );
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const backend = bootstrap();
     const page = await backend.getMarkdownFile("ignored.md");
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/remote-document/session-1",
-    );
+    expect(fetchMock).toHaveBeenCalledWith("/api/remote-document/session-1");
     expect(page.content).toBe("v2");
     expect(page.version).toBe("version-2");
   });
@@ -96,18 +88,19 @@ describe("RemoteBackend", () => {
   });
 
   it("surfaces a 409 as MarkdownFileConflictError carrying current state", async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          current: {
-            id: "session-1",
-            originPath: "/work/draft.md",
-            content: "server-content",
-            version: "version-server",
-          },
-        }),
-        { status: 409 },
-      ),
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            current: {
+              id: "session-1",
+              originPath: "/work/draft.md",
+              content: "server-content",
+              version: "version-server",
+            },
+          }),
+          { status: 409 },
+        ),
     );
     global.fetch = fetchMock as unknown as typeof fetch;
 
@@ -134,5 +127,32 @@ describe("RemoteBackend", () => {
     const backend = bootstrap();
     await expect(backend.openProject("/elsewhere")).resolves.toBeUndefined();
     expect(backend.info.projectPath).toBeUndefined();
+  });
+
+  it("onSessionStatusChange immediately reports the current status and any future changes", () => {
+    const backend = bootstrap();
+    const events: string[] = [];
+    const unsubscribe = backend.onSessionStatusChange((status) =>
+      events.push(status),
+    );
+
+    expect(events).toEqual(["disconnected"]);
+
+    // Simulate the SSE flow flipping the status to connected, then disconnected.
+    (
+      backend as unknown as { setSessionStatus: (s: string) => void }
+    ).setSessionStatus("connected");
+    (
+      backend as unknown as { setSessionStatus: (s: string) => void }
+    ).setSessionStatus("disconnected");
+
+    expect(events).toEqual(["disconnected", "connected", "disconnected"]);
+
+    unsubscribe();
+
+    (
+      backend as unknown as { setSessionStatus: (s: string) => void }
+    ).setSessionStatus("connected");
+    expect(events).toEqual(["disconnected", "connected", "disconnected"]);
   });
 });

@@ -11,9 +11,9 @@ describe("resolveBindHosts", () => {
   });
 
   it("returns a single host when the env var names one host", () => {
-    expect(
-      resolveBindHosts({ [ROUGHDRAFT_BIND_HOST_ENV]: "0.0.0.0" }),
-    ).toEqual(["0.0.0.0"]);
+    expect(resolveBindHosts({ [ROUGHDRAFT_BIND_HOST_ENV]: "0.0.0.0" })).toEqual(
+      ["0.0.0.0"],
+    );
   });
 
   it("returns multiple hosts from a comma-separated value", () => {
@@ -31,14 +31,14 @@ describe("resolveBindHosts", () => {
   });
 
   it("falls back to the loopback list when the env var is an empty string", () => {
-    expect(
-      resolveBindHosts({ [ROUGHDRAFT_BIND_HOST_ENV]: "" }),
-    ).toEqual(ROUGHDRAFT_LOOPBACK_HOSTS);
+    expect(resolveBindHosts({ [ROUGHDRAFT_BIND_HOST_ENV]: "" })).toEqual(
+      ROUGHDRAFT_LOOPBACK_HOSTS,
+    );
   });
 
   it("falls back to the loopback list when the env var is only commas and whitespace", () => {
-    expect(
-      resolveBindHosts({ [ROUGHDRAFT_BIND_HOST_ENV]: " , , " }),
-    ).toEqual(ROUGHDRAFT_LOOPBACK_HOSTS);
+    expect(resolveBindHosts({ [ROUGHDRAFT_BIND_HOST_ENV]: " , , " })).toEqual(
+      ROUGHDRAFT_LOOPBACK_HOSTS,
+    );
   });
 });

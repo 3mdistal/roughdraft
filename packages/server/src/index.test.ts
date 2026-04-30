@@ -1,4 +1,4 @@
-import { type AddressInfo } from "node:net";
+import type { AddressInfo } from "node:net";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -536,13 +536,11 @@ describe("createApp", () => {
     const { app } = createApp({ homeDir, staticDirPath: projectDir });
     const sessionId = "session-1";
 
-    const register = await request(app)
-      .post("/api/remote-document")
-      .send({
-        sessionId,
-        originPath: "/work/draft.md",
-        content: "# hello\n",
-      });
+    const register = await request(app).post("/api/remote-document").send({
+      sessionId,
+      originPath: "/work/draft.md",
+      content: "# hello\n",
+    });
 
     expect(register.status).toBe(201);
     expect(register.body).toMatchObject({
@@ -646,9 +644,7 @@ describe("createApp", () => {
 
   it("returns 404 when opening SSE for an unknown session", async () => {
     const { app } = createApp({ homeDir, staticDirPath: projectDir });
-    const response = await request(app).get(
-      "/api/remote-document/nope/events",
-    );
+    const response = await request(app).get("/api/remote-document/nope/events");
     expect(response.status).toBe(404);
   });
 
@@ -659,15 +655,18 @@ describe("createApp", () => {
       const port = (server.address() as AddressInfo).port;
       const sessionId = "sse-delivers";
 
-      const register = await fetch(`http://127.0.0.1:${port}/api/remote-document`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId,
-          originPath: "/draft.md",
-          content: "before",
-        }),
-      });
+      const register = await fetch(
+        `http://127.0.0.1:${port}/api/remote-document`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId,
+            originPath: "/draft.md",
+            content: "before",
+          }),
+        },
+      );
       expect(register.status).toBe(201);
 
       const events = await fetch(

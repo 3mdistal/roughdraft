@@ -1391,7 +1391,9 @@ describe("runCli open in remote mode", () => {
     expect(errors.join("\n")).toContain("can only open .md files");
   });
 
-  it("registers a session, opens the viewer URL, and writes save events to disk", { timeout: 15_000 }, async () => {
+  it("registers a session, opens the viewer URL, and writes save events to disk", {
+    timeout: 15_000,
+  }, async () => {
     const remote = await startRemoteHost();
     try {
       const filePath = path.join(projectDir, "draft.md");
@@ -1425,9 +1427,9 @@ describe("runCli open in remote mode", () => {
         await new Promise((resolve) => setTimeout(resolve, 25));
       }
       expect(openedUrl).not.toBeNull();
-      const sessionId = new URL(openedUrl as unknown as string).searchParams.get(
-        "session",
-      );
+      const sessionId = new URL(
+        openedUrl as unknown as string,
+      ).searchParams.get("session");
       expect(sessionId).toBeTruthy();
 
       // Wait until the server actually has the SSE client connected before PUTting.
@@ -1458,9 +1460,9 @@ describe("runCli open in remote mode", () => {
       await remote.close();
       const exitCode = await cliPromise;
       expect(exitCode).toBe(0);
-      expect(logs.some((m) => m.includes("Opened remote Roughdraft session"))).toBe(
-        true,
-      );
+      expect(
+        logs.some((m) => m.includes("Opened remote Roughdraft session")),
+      ).toBe(true);
     } finally {
       await remote.close();
     }

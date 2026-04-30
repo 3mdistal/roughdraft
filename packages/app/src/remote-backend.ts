@@ -161,9 +161,10 @@ export class RemoteBackend implements StorageBackend {
 
     source.addEventListener("save", (event) => {
       try {
-        const payload = JSON.parse(
-          (event as MessageEvent<string>).data,
-        ) as { content?: string; version?: string };
+        const payload = JSON.parse((event as MessageEvent<string>).data) as {
+          content?: string;
+          version?: string;
+        };
         if (
           typeof payload.content === "string" &&
           typeof payload.version === "string"
