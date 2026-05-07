@@ -611,6 +611,32 @@ describe("PageCard editor integration", () => {
     ).toBe("false");
   });
 
+  it("keeps focus in the editor when placing the cursor inside a link", async () => {
+    const rendered = await renderPageCard({
+      page: {
+        id: "doc-link-cursor-focus-1",
+        title: "Doc Link Cursor Focus 1",
+        content: "[linked](https://example.com)",
+      },
+      interactionMode: "editing",
+      selected: true,
+    });
+    const editor = rendered.getEditor();
+
+    await act(async () => {
+      const range = findTextRange(editor, "linked");
+      expect(range).not.toBeNull();
+      editor.commands.focus();
+      editor.commands.setTextSelection((range?.from ?? 1) + 2);
+    });
+    await flushAnimationFrame();
+
+    expect(document.activeElement).toBe(getEditable(rendered.container));
+    expect(
+      rendered.container.querySelector('input[aria-label="Link URL"]'),
+    ).toBeNull();
+  });
+
   it("suggesting mode turns typed text into insertion markup", async () => {
     const rendered = await renderPageCard({
       page: {

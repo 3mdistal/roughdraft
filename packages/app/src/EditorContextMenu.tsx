@@ -51,6 +51,7 @@ interface LinkPopoverState {
   rawHref: string;
   left: number;
   top: number;
+  existingLink: boolean;
 }
 
 function getNavigatorPlatform() {
@@ -291,40 +292,47 @@ export function EditorContextMenu({
   }, [editor, onSuggestInsertion]);
 
   const updateLinkPopover = useCallback(() => {
-    if (!editor || !containerRef.current || !editor.isActive("link")) {
-      setLinkPopoverState(null);
-      return;
-    }
+    setLinkPopoverState((current) => {
+      if (!current?.existingLink) return current;
+      if (!editor || !containerRef.current || !editor.isActive("link")) {
+        return null;
+      }
 
-    const anchor = findActiveLinkAnchor(editor, containerRef.current);
+      const anchor = findActiveLinkAnchor(editor, containerRef.current);
 
-    if (!anchor) {
-      setLinkPopoverState(null);
-      return;
-    }
+      if (!anchor) {
+        return null;
+      }
 
-    const rect = anchor.getBoundingClientRect();
-    if (rect.width === 0 && rect.height === 0) {
-      setLinkPopoverState(null);
-      return;
-    }
+      const rect = anchor.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) {
+        return null;
+      }
 
-    const rawHref =
-      (editor.getAttributes("link").dataMarkdownSrc as string | null) ||
-      anchor.getAttribute("data-markdown-src") ||
-      anchor.getAttribute("href") ||
-      "";
-    const href = resolveEditableLinkTarget(
-      rawHref,
-      backend,
-      (editor.getAttributes("link").href as string | null) || anchor.href,
-    );
+      const rawHref =
+        (editor.getAttributes("link").dataMarkdownSrc as string | null) ||
+        anchor.getAttribute("data-markdown-src") ||
+        anchor.getAttribute("href") ||
+        "";
+      const href = resolveEditableLinkTarget(
+        rawHref,
+        backend,
+        (editor.getAttributes("link").href as string | null) || anchor.href,
+      );
+      const next = {
+        ...current,
+        href,
+        rawHref,
+        left: rect.left + rect.width / 2,
+        top: rect.top - 12,
+      };
 
-    setLinkPopoverState({
-      href,
-      rawHref,
-      left: rect.left + rect.width / 2,
-      top: rect.top - 12,
+      return next.href === current.href &&
+        next.rawHref === current.rawHref &&
+        next.left === current.left &&
+        next.top === current.top
+        ? current
+        : next;
     });
   }, [backend, editor]);
 
@@ -351,6 +359,7 @@ export function EditorContextMenu({
         rawHref,
         left: rect.left + rect.width / 2,
         top: rect.top - 12,
+        existingLink: true,
       });
       return;
     }
@@ -369,6 +378,7 @@ export function EditorContextMenu({
       rawHref,
       left: rect.left + rect.width / 2,
       top: rect.top - 12,
+      existingLink: false,
     });
   }, [backend, editor]);
 
