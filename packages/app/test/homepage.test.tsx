@@ -66,6 +66,18 @@ function getByTestId<T extends Element = HTMLElement>(
   return element as T;
 }
 
+async function renderHomepage(root: Root) {
+  await act(async () => {
+    root.render(
+      <Homepage
+        message="Roughdraft is a markdown editor with commenting and suggest changes mode, making it easier to align with AI on complex ideas."
+        updateStatus={null}
+      />,
+    );
+    await Promise.resolve();
+  });
+}
+
 describe("Homepage", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -134,15 +146,7 @@ describe("Homepage", () => {
   });
 
   it("opens the agent setup prompt from the CTA and copies it", async () => {
-    await act(async () => {
-      root.render(
-        <Homepage
-          message="Roughdraft is a markdown editor with commenting and suggest changes mode, making it easier to align with AI on complex ideas."
-          updateStatus={null}
-        />,
-      );
-      await Promise.resolve();
-    });
+    await renderHomepage(root);
 
     expect(container.textContent).toContain(
       "Easier collaboration with your coding agent",
@@ -216,18 +220,6 @@ describe("Homepage", () => {
     expect(
       container.querySelector(".critic-change[data-critic-change-id]"),
     ).not.toBeNull();
-    expect(container.textContent).toContain("Review workflow");
-    expect(container.textContent).toContain(
-      "Pass the same Markdown file back and forth with your agent.",
-    );
-    expect(container.textContent).toContain("Review an agent's draft");
-    expect(container.textContent).toContain(
-      "tell the agent to read the file again",
-    );
-    expect(container.textContent).toContain("Ask the agent to review yours");
-    expect(container.textContent).toContain(
-      "leave detailed comments, questions, and suggested edits",
-    );
     expect(container.innerHTML).not.toContain(
       'contenteditable="plaintext-only"',
     );
@@ -283,6 +275,78 @@ describe("Homepage", () => {
 
     expect(writeText).toHaveBeenCalledWith(AGENT_SETUP_PROMPT);
     expect(document.body.textContent).toContain("Copied");
+  });
+
+  it("explains the plan-review workflow as a six-scene storyboard above the Markdown section", async () => {
+    await renderHomepage(root);
+
+    const text = container.textContent ?? "";
+    expect(text).toContain("Review an agent's plan before it starts coding.");
+    expect(text).toContain(
+      "Ask for a plan, mark it up in Roughdraft, click Done Reviewing, and the agent continues from the edited Markdown file.",
+    );
+
+    const storyboard = container.querySelector(
+      "[data-homepage-workflow-storyboard]",
+    );
+    expect(storyboard).not.toBeNull();
+    expect(storyboard?.getAttribute("aria-labelledby")).toBe(
+      "homepage-workflow-heading",
+    );
+
+    const markdownDemo = container.querySelector(".rfm-format-demo");
+    expect(markdownDemo).not.toBeNull();
+    expect(storyboard && markdownDemo).toBeTruthy();
+    if (!storyboard || !markdownDemo) {
+      throw new Error("Expected storyboard and Markdown demo to render");
+    }
+    expect(
+      storyboard.compareDocumentPosition(markdownDemo) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    const scenes = [
+      "Ask for a plan",
+      "The agent works normally",
+      "Roughdraft opens the plan",
+      "Leave comments and suggestions",
+      "Click Done Reviewing",
+      "The agent resumes",
+    ];
+
+    const sceneNodes = [
+      ...storyboard.querySelectorAll("[data-homepage-workflow-scene]"),
+    ];
+    expect(sceneNodes).toHaveLength(scenes.length);
+
+    scenes.forEach((scene, index) => {
+      expect(sceneNodes[index]?.textContent).toContain(
+        String(index + 1).padStart(2, "0"),
+      );
+      expect(sceneNodes[index]?.textContent).toContain(scene);
+    });
+
+    expect(storyboard.textContent).toContain(
+      "Let's make the homepage more persuasive. Write a plan first.",
+    );
+    expect(storyboard.textContent).toContain(
+      "write .context/homepage-conversion-plan.md",
+    );
+    expect(storyboard.textContent).toContain("Homepage Conversion Plan");
+    expect(storyboard.textContent).toContain(
+      'Move the workflow story above "It\'s just Markdown."',
+    );
+    expect(storyboard.textContent).toContain(
+      "This should go above \"It's just Markdown.\"",
+    );
+    expect(storyboard.textContent).toContain(
+      "Review an agent's plan before it starts coding.",
+    );
+    expect(storyboard.textContent).toContain("Review complete");
+    expect(storyboard.textContent).toContain(
+      "Your agent can read the edited Markdown file now.",
+    );
+    expect(storyboard.textContent).toContain("I read your comments.");
   });
 
   it("renders the Roughdraft flavored Markdown spec page", async () => {
