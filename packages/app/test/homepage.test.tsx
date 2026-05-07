@@ -283,23 +283,15 @@ describe("Homepage", () => {
     const text = container.textContent ?? "";
     expect(text).toContain("How it works");
 
-    const storyboard = container.querySelector(
-      "[data-homepage-workflow-storyboard]",
-    );
-    expect(storyboard).not.toBeNull();
-    expect(storyboard?.getAttribute("aria-labelledby")).toBe(
+    const storyboard = getByTestId(container, "homepage-workflow-storyboard");
+    expect(storyboard.getAttribute("aria-labelledby")).toBe(
       "homepage-workflow-heading",
     );
     expect(
-      storyboard.querySelector("#homepage-workflow-heading")?.textContent,
+      getByTestId(storyboard, "homepage-workflow-heading").textContent,
     ).toBe("How it works");
 
-    const markdownDemo = container.querySelector(".rfm-format-demo");
-    expect(markdownDemo).not.toBeNull();
-    expect(storyboard && markdownDemo).toBeTruthy();
-    if (!storyboard || !markdownDemo) {
-      throw new Error("Expected storyboard and Markdown demo to render");
-    }
+    const markdownDemo = getByTestId(container, "rfm-format-demo");
     expect(
       storyboard.compareDocumentPosition(markdownDemo) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -310,54 +302,56 @@ describe("Homepage", () => {
       "The agent works normally",
       "Roughdraft opens the plan",
       "Leave comments and suggestions",
-      "Click Done Reviewing",
+      "Click I'm done",
       "The agent resumes",
     ];
 
     const sceneNodes = [
-      ...storyboard.querySelectorAll("[data-homepage-workflow-scene]"),
+      ...storyboard.querySelectorAll('[data-testid="homepage-workflow-scene"]'),
     ];
     expect(sceneNodes).toHaveLength(scenes.length);
 
-    const stickyVisual = storyboard.querySelector(
-      "[data-homepage-workflow-sticky-visual]",
+    const stickyVisual = getByTestId(
+      storyboard,
+      "homepage-workflow-sticky-visual",
     );
     expect(stickyVisual).not.toBeNull();
     expect(
-      storyboard.querySelectorAll(".homepage-workflow-terminal"),
+      storyboard.querySelectorAll('[data-testid="homepage-workflow-terminal"]'),
     ).toHaveLength(1);
     expect(
-      storyboard
-        .querySelector(".homepage-workflow-terminal")
-        ?.getAttribute("data-homepage-workflow-terminal-stage"),
+      getByTestId(storyboard, "homepage-workflow-terminal").getAttribute(
+        "data-homepage-workflow-terminal-stage",
+      ),
     ).toBe("1");
     expect(
-      storyboard
-        .querySelector(".homepage-workflow-terminal-reveal-stack")
-        ?.getAttribute("data-agent-work-visible"),
+      getByTestId(storyboard, "homepage-workflow-agent-work").getAttribute(
+        "data-agent-work-visible",
+      ),
     ).toBe("false");
     expect(
-      storyboard
-        .querySelector(".homepage-workflow-terminal-command")
-        ?.getAttribute("data-terminal-line-visible"),
+      getByTestId(
+        storyboard,
+        "homepage-workflow-terminal-command",
+      ).getAttribute("data-terminal-line-visible"),
     ).toBe("false");
     expect(
-      storyboard
-        .querySelector(".homepage-workflow-terminal-input")
-        ?.getAttribute("data-terminal-line-visible"),
+      getByTestId(storyboard, "homepage-workflow-terminal-input").getAttribute(
+        "data-terminal-line-visible",
+      ),
     ).toBe("false");
     expect(
-      storyboard.querySelectorAll("[data-homepage-workflow-popup]"),
+      storyboard.querySelectorAll('[data-testid="homepage-workflow-popup"]'),
     ).toHaveLength(1);
     expect(
-      storyboard
-        .querySelector("[data-homepage-workflow-popup]")
-        ?.getAttribute("data-popup-visible"),
+      getByTestId(storyboard, "homepage-workflow-popup").getAttribute(
+        "data-popup-visible",
+      ),
     ).toBe("false");
     expect(
-      storyboard
-        .querySelector("[data-homepage-workflow-popup]")
-        ?.getAttribute("aria-hidden"),
+      getByTestId(storyboard, "homepage-workflow-popup").getAttribute(
+        "aria-hidden",
+      ),
     ).toBe("true");
     expect(APP_STYLES).toMatch(
       /\.homepage-workflow-sticky-visual \{[^}]*position:\s*sticky;[^}]*top:\s*2rem;/s,
@@ -370,6 +364,9 @@ describe("Homepage", () => {
     );
     expect(APP_STYLES).toMatch(
       /\.homepage-workflow-terminal-reveal-stack\[data-agent-work-visible="false"\] \{[^}]*max-height:\s*0;[^}]*opacity:\s*0;/s,
+    );
+    expect(APP_STYLES).toMatch(
+      /\.homepage-workflow-document-shell-no-comments \{[^}]*max-width:\s*39rem;/s,
     );
 
     scenes.forEach((scene, index) => {
@@ -405,25 +402,14 @@ describe("Homepage", () => {
       "Keep the format section as proof that the review data is portable Markdown.",
     );
     expect(storyboard.textContent).toContain(
-      'This should go above "It\'s just Markdown."',
-    );
-    expect(storyboard.textContent).toContain(
-      "Can we make the example about homepage conversion?",
-    );
-    expect(storyboard.textContent).toContain(
       "Review an agent's plan before it starts coding.",
     );
-    expect(storyboard.textContent).toContain("Done Reviewing");
-    expect(storyboard.textContent).toContain("Review complete");
-    expect(storyboard.textContent).toContain(
-      "Your agent can read the edited Markdown file now.",
+    expect(storyboard.textContent).not.toContain(
+      'This should go above "It\'s just Markdown."',
     );
+    expect(storyboard.textContent).not.toContain("Review complete");
     expect(storyboard.textContent).toContain("I read your comments.");
-    const doneReviewingButton = [...storyboard.querySelectorAll("button")].find(
-      (button) => button.textContent?.includes("Done Reviewing"),
-    );
-    expect(doneReviewingButton).toBeDefined();
-    expect(doneReviewingButton?.getAttribute("data-slot")).toBe("button");
+    expect(storyboard.textContent).toContain("Waiting for I'm done...");
   });
 
   it("renders the Roughdraft flavored Markdown spec page", async () => {

@@ -7,43 +7,28 @@ test.describe("homepage workflow storyboard", () => {
   }, testInfo) => {
     await page.goto("/");
 
-    const storyboard = page.locator("[data-homepage-workflow-storyboard]");
+    const storyboard = page.getByTestId("homepage-workflow-storyboard");
     await expect(storyboard).toBeVisible();
-    await expect(
-      page.getByRole("heading", {
-        name: "How it works",
-      }),
-    ).toBeVisible();
+    await expect(page.getByTestId("homepage-workflow-heading")).toHaveText(
+      "How it works",
+    );
 
-    await expect(
-      storyboard.locator("[data-homepage-workflow-scene]"),
-    ).toHaveCount(6);
-    await expect(
-      storyboard.getByText("Ask for a plan", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      storyboard.getByText("The agent works normally", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      storyboard.getByText("Roughdraft opens the plan", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      storyboard.getByText("Leave comments and suggestions", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      storyboard.getByText("Click Done Reviewing", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      storyboard.getByText("The agent resumes", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      storyboard.getByText(
-        "Let's make the homepage more persuasive. Write a plan first.",
-      ),
-    ).toBeVisible();
+    const scenes = storyboard.getByTestId("homepage-workflow-scene");
+    await expect(scenes).toHaveCount(6);
+    const sceneTexts = await scenes.allTextContents();
+    expect(sceneTexts).toHaveLength(6);
+    expect(sceneTexts[0]).toContain("Ask for a plan");
+    expect(sceneTexts[1]).toContain("The agent works normally");
+    expect(sceneTexts[2]).toContain("Roughdraft opens the plan");
+    expect(sceneTexts[3]).toContain("Leave comments and suggestions");
+    expect(sceneTexts[4]).toContain("Click I'm done");
+    expect(sceneTexts[5]).toContain("The agent resumes");
+    await expect(storyboard).toContainText(
+      "Let's make the homepage more persuasive. Write a plan first.",
+    );
 
-    const agentWorkTranscript = storyboard.locator(
-      ".homepage-workflow-terminal-reveal-stack",
+    const agentWorkTranscript = storyboard.getByTestId(
+      "homepage-workflow-agent-work",
     );
     await expect(agentWorkTranscript).toHaveAttribute(
       "data-agent-work-visible",
@@ -60,9 +45,7 @@ test.describe("homepage workflow storyboard", () => {
       opacity: "0",
     });
 
-    const roughdraftPopup = storyboard.locator(
-      "[data-homepage-workflow-popup]",
-    );
+    const roughdraftPopup = storyboard.getByTestId("homepage-workflow-popup");
     await expect(roughdraftPopup).toHaveAttribute(
       "data-popup-visible",
       "false",
@@ -78,67 +61,90 @@ test.describe("homepage workflow storyboard", () => {
       pointerEvents: "none",
     });
 
-    await storyboard
-      .locator("[data-homepage-workflow-scene]")
-      .nth(1)
-      .evaluate((element) => {
-        window.scrollTo({
-          top: element.getBoundingClientRect().top + window.scrollY - 1,
-        });
+    await scenes.nth(1).evaluate((element) => {
+      window.scrollTo({
+        top: element.getBoundingClientRect().top + window.scrollY - 1,
       });
+    });
     await expect(agentWorkTranscript).toHaveAttribute(
       "data-agent-work-visible",
       "false",
     );
 
-    await storyboard
-      .locator("[data-homepage-workflow-scene]")
-      .nth(1)
-      .evaluate((element) => {
-        window.scrollTo({
-          top: element.getBoundingClientRect().top + window.scrollY,
-        });
+    await scenes.nth(1).evaluate((element) => {
+      window.scrollTo({
+        top: element.getBoundingClientRect().top + window.scrollY,
       });
+    });
     await expect(agentWorkTranscript).toHaveAttribute(
       "data-agent-work-visible",
       "true",
     );
+    await expect(storyboard).toContainText(
+      "I'll inspect the current homepage, draft a Markdown plan, and open it in Roughdraft for review before I code.",
+    );
     await expect(
-      storyboard.getByText(
-        "I'll inspect the current homepage, draft a Markdown plan, and open it in Roughdraft for review before I code.",
-      ),
-    ).toBeVisible();
-    await expect(storyboard.getByText("Tool calls")).toBeVisible();
+      storyboard.getByTestId("homepage-workflow-terminal-tools"),
+    ).toContainText("Tool calls");
     await expect(roughdraftPopup).toHaveAttribute(
       "data-popup-visible",
       "false",
     );
 
-    await storyboard
-      .locator("[data-homepage-workflow-scene]")
-      .nth(2)
-      .evaluate((element) => {
-        window.scrollTo({
-          top: element.getBoundingClientRect().top + window.scrollY,
-        });
+    await scenes.nth(2).evaluate((element) => {
+      window.scrollTo({
+        top: element.getBoundingClientRect().top + window.scrollY,
       });
+    });
     await expect(roughdraftPopup).toHaveAttribute("data-popup-visible", "true");
     await expect(roughdraftPopup).not.toHaveAttribute("aria-hidden", "true");
     await expect(
-      storyboard
-        .getByRole("heading", { name: "Homepage Conversion Plan" })
-        .first(),
+      storyboard.getByTestId("homepage-workflow-document-title"),
     ).toBeVisible();
     await expect(
-      storyboard.getByRole("button", { name: "Done Reviewing" }),
+      roughdraftPopup.getByTestId(
+        "homepage-workflow-document-shell-no-comments",
+      ),
     ).toBeVisible();
-    await expect(storyboard.getByText("Review complete")).toBeVisible();
+    await expect(
+      roughdraftPopup.getByTestId("homepage-workflow-review-comment"),
+    ).toHaveCount(0);
+    await expect(
+      storyboard.getByTestId("homepage-workflow-handoff-button"),
+    ).toHaveCount(0);
+    await expect(storyboard).not.toContainText("Review complete");
+
+    await scenes.nth(3).evaluate((element) => {
+      window.scrollTo({
+        top: element.getBoundingClientRect().top + window.scrollY,
+      });
+    });
+    await expect(
+      roughdraftPopup.getByTestId(
+        "homepage-workflow-document-shell-with-comments",
+      ),
+    ).toBeVisible();
+    await expect(
+      roughdraftPopup.getByTestId("homepage-workflow-review-comment"),
+    ).toBeVisible();
+
+    await scenes.nth(4).evaluate((element) => {
+      window.scrollTo({
+        top: element.getBoundingClientRect().top + window.scrollY,
+      });
+    });
+    await expect(
+      storyboard.getByTestId("homepage-workflow-handoff-button"),
+    ).toBeVisible();
+    await expect(storyboard).not.toContainText("Review complete");
 
     const stickyLayout = await storyboard.evaluate((element) => {
       const sticky = element.querySelector(
-        "[data-homepage-workflow-sticky-visual]",
+        '[data-testid="homepage-workflow-sticky-visual"]',
       );
-      const sceneList = element.querySelector(".homepage-workflow-scene-list");
+      const sceneList = element.querySelector(
+        '[data-testid="homepage-workflow-scene-list"]',
+      );
       if (!sticky || !sceneList) {
         throw new Error("Expected sticky visual and scene list");
       }
@@ -157,17 +163,15 @@ test.describe("homepage workflow storyboard", () => {
       stickyLayout.sceneListRight,
     );
 
-    const sceneLayout = await storyboard
-      .locator("[data-homepage-workflow-scene]")
-      .evaluateAll((elements) =>
-        elements.map((element) => {
-          const rect = element.getBoundingClientRect();
-          return {
-            height: rect.height,
-            top: rect.top + window.scrollY,
-          };
-        }),
-      );
+    const sceneLayout = await scenes.evaluateAll((elements) =>
+      elements.map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          height: rect.height,
+          top: rect.top + window.scrollY,
+        };
+      }),
+    );
     expect(sceneLayout).toHaveLength(6);
     for (let index = 1; index < sceneLayout.length; index += 1) {
       expect(sceneLayout[index].top).toBeGreaterThan(
@@ -182,7 +186,7 @@ test.describe("homepage workflow storyboard", () => {
       (element) => element.getBoundingClientRect().top + window.scrollY,
     );
     const markdownTop = await page
-      .locator(".rfm-format-demo")
+      .getByTestId("rfm-format-demo")
       .evaluate(
         (element) => element.getBoundingClientRect().top + window.scrollY,
       );
@@ -205,41 +209,31 @@ test.describe("homepage workflow storyboard", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
 
-    const storyboard = page.locator("[data-homepage-workflow-storyboard]");
+    const storyboard = page.getByTestId("homepage-workflow-storyboard");
     await expect(storyboard).toBeVisible();
-    await expect(
-      page.getByRole("heading", {
-        name: "How it works",
-      }),
-    ).toBeVisible();
+    await expect(page.getByTestId("homepage-workflow-heading")).toHaveText(
+      "How it works",
+    );
 
-    await expect(
-      storyboard.getByText("Ask for a plan", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      storyboard.getByText("The agent works normally", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      storyboard.getByText("Roughdraft opens the plan", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      storyboard.getByText("Leave comments and suggestions", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      storyboard.getByText("Click Done Reviewing", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      storyboard.getByText("The agent resumes", { exact: true }),
-    ).toBeVisible();
+    const mobileSceneTexts = await storyboard
+      .getByTestId("homepage-workflow-scene")
+      .allTextContents();
+    expect(mobileSceneTexts).toHaveLength(6);
+    expect(mobileSceneTexts[0]).toContain("Ask for a plan");
+    expect(mobileSceneTexts[1]).toContain("The agent works normally");
+    expect(mobileSceneTexts[2]).toContain("Roughdraft opens the plan");
+    expect(mobileSceneTexts[3]).toContain("Leave comments and suggestions");
+    expect(mobileSceneTexts[4]).toContain("Click I'm done");
+    expect(mobileSceneTexts[5]).toContain("The agent resumes");
 
     const dimensions = await page.evaluate(() => ({
       bodyScrollWidth: document.body.scrollWidth,
       documentScrollWidth: document.documentElement.scrollWidth,
       storyboardClientWidth:
-        document.querySelector("[data-homepage-workflow-storyboard]")
+        document.querySelector('[data-testid="homepage-workflow-storyboard"]')
           ?.clientWidth ?? 0,
       storyboardScrollWidth:
-        document.querySelector("[data-homepage-workflow-storyboard]")
+        document.querySelector('[data-testid="homepage-workflow-storyboard"]')
           ?.scrollWidth ?? 0,
       viewportWidth: window.innerWidth,
     }));
