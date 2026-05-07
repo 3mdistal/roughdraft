@@ -184,12 +184,7 @@ export function DocumentSaveStatusIndicator({
       role="status"
       aria-label={saveStatus.ariaLabel}
       className={cn(
-        "inline-flex h-7 max-w-full shrink-0 items-center gap-1.5 px-1 font-mono text-[0.68rem] leading-none",
-        saveStatus.tone === "success" &&
-          "text-emerald-700 dark:text-emerald-300",
-        saveStatus.tone === "warning" && "text-amber-800 dark:text-amber-300",
-        saveStatus.tone === "danger" && "text-red-700 dark:text-red-300",
-        saveStatus.tone === "neutral" && "text-stone-500 dark:text-slate-300",
+        "inline-flex h-7 max-w-full shrink-0 items-center gap-1.5 px-1 font-mono text-[0.68rem] leading-none text-stone-400 dark:text-stone-500",
       )}
     >
       <SaveStatusIcon
