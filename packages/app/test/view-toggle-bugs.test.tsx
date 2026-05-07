@@ -6,7 +6,11 @@ import {
   getDocumentEditorViewModeFromLocation,
   type DocumentEditorViewMode,
 } from "../src/app-navigation";
-import { DocumentWorkspace } from "../src/DocumentWorkspace";
+import {
+  DocumentSaveStatusIndicator,
+  DocumentWorkspace,
+} from "../src/DocumentWorkspace";
+import type { DocumentSaveState } from "../src/PageCard";
 import type {
   CompleteReviewResult,
   Page,
@@ -217,6 +221,9 @@ describe("saving/saved status indicator (issue 2 fix)", () => {
     document.body.appendChild(container);
     root = createRoot(container);
     setupDomMocks();
+    (
+      globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
   });
 
   afterEach(async () => {
@@ -227,7 +234,33 @@ describe("saving/saved status indicator (issue 2 fix)", () => {
     vi.restoreAllMocks();
   });
 
-  it("DocumentWorkspace shows a save status indicator when saving", async () => {
+  async function renderSaveStatus({
+    saveState = "saved",
+    documentDiskChangeState = "clean",
+  }: {
+    saveState?: DocumentSaveState;
+    documentDiskChangeState?: "clean" | "changed" | "conflict" | "paused";
+  } = {}) {
+    await act(async () => {
+      root.render(
+        <DocumentSaveStatusIndicator
+          saveState={saveState}
+          diskChangeState={documentDiskChangeState}
+        />,
+      );
+      await Promise.resolve();
+    });
+  }
+
+  async function renderWorkspace({
+    documentDiskChangeState = "clean",
+    watcherCount = 0,
+    onSaveDocument = async () => {},
+  }: {
+    documentDiskChangeState?: "clean" | "changed" | "conflict" | "paused";
+    watcherCount?: number;
+    onSaveDocument?: (id: string, content: string) => Promise<void>;
+  } = {}) {
     (
       globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
     ).IS_REACT_ACT_ENVIRONMENT = true;
@@ -240,30 +273,107 @@ describe("saving/saved status indicator (issue 2 fix)", () => {
           documentFilenameLabel="test.md"
           documentEditorViewMode="rich-text"
           onDocumentEditorViewModeChange={() => {}}
-          onSaveDocument={async () => {}}
+          onSaveDocument={onSaveDocument}
           onDocumentSaveStateChange={() => {}}
           onDocumentDirtyStateChange={() => {}}
           onDocumentLocalContentChange={() => {}}
-          documentDiskChangeState="clean"
+          documentDiskChangeState={documentDiskChangeState}
           documentForceResetKey={null}
           onReloadDocumentFromDisk={() => {}}
           onKeepEditingWithoutAutosave={() => {}}
           onOverwriteDocumentOnDisk={() => {}}
           onCompleteReview={async () => ({ delivered: false })}
-          backend={createBackend()}
+          backend={createBackend({ watcherCount })}
         />,
       );
+      await Promise.resolve();
+    });
+  }
+
+  it.each([
+    ["saved", "Saved"],
+    ["saving", "Saving"],
+    ["unsaved", "Unsaved changes"],
+    ["error", "Save failed"],
+  ] satisfies Array<[DocumentSaveState, string]>)(
+    "shows persistent %s save status",
+    async (saveState, label) => {
+      await renderSaveStatus({ saveState });
+
+      expect(
+        container.querySelector(`[role="status"][aria-label="${label}"]`),
+      ).not.toBeNull();
+      expect(container.textContent).toContain(label);
+    },
+  );
+
+  it.each([
+    ["changed", "File changed on disk"],
+    ["conflict", "Save conflict"],
+    ["paused", "Autosave paused"],
+  ] as const)("shows disk-blocked %s save status", async (state, label) => {
+    await renderSaveStatus({ documentDiskChangeState: state });
+
+    expect(
+      container.querySelector(`[role="status"][aria-label="${label}"]`),
+    ).not.toBeNull();
+    expect(container.textContent).toContain(label);
+  });
+
+  it("renders save status in the same top-right stack under the handoff button", async () => {
+    await renderWorkspace({ watcherCount: 1 });
+
+    const stack = container.querySelector('[data-document-status-stack="true"]');
+    expect(stack).not.toBeNull();
+    expect(stack?.textContent).toContain("I'm done");
+    expect(stack?.textContent).toContain("Saved");
+  });
+
+  it.each([
+    ["Meta+S", { key: "s", metaKey: true }],
+    ["Control+S", { key: "s", ctrlKey: true }],
+  ])("prevents browser save on %s", async (_label, init) => {
+    const onSaveDocument = vi.fn().mockResolvedValue(undefined);
+    await renderWorkspace({ onSaveDocument });
+
+    const event = new KeyboardEvent("keydown", {
+      ...init,
+      bubbles: true,
+      cancelable: true,
+    });
+    const preventDefault = vi.spyOn(event, "preventDefault");
+
+    await act(async () => {
+      window.dispatchEvent(event);
+      await Promise.resolve();
     });
 
-    // Initially idle — no indicator visible
-    const textContent = container.textContent ?? "";
-    expect(textContent).not.toContain("Saving");
-    expect(textContent).not.toContain("Saved");
+    expect(preventDefault).toHaveBeenCalled();
+  });
 
-    // The save status indicator has proper ARIA when it appears
-    expect(
-      container.querySelector('[role="status"][aria-label="Saving"]'),
-    ).toBeNull();
+  it("prevents browser save even when disk conflict blocks persistence", async () => {
+    const onSaveDocument = vi.fn().mockResolvedValue(undefined);
+    await renderWorkspace({
+      documentDiskChangeState: "conflict",
+      onSaveDocument,
+    });
+
+    const event = new KeyboardEvent("keydown", {
+      key: "s",
+      metaKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    const preventDefault = vi.spyOn(event, "preventDefault");
+
+    await act(async () => {
+      window.dispatchEvent(event);
+      await Promise.resolve();
+    });
+
+    expect(preventDefault).toHaveBeenCalled();
+    expect(onSaveDocument).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("Save conflict");
   });
 });
 
