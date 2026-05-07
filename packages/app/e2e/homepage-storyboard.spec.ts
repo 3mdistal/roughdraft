@@ -45,8 +45,8 @@ test.describe("homepage workflow storyboard", () => {
       storyboard.getByText("Homepage Conversion Plan"),
     ).toBeVisible();
     await expect(
-      storyboard.locator("[data-homepage-workflow-done-reviewing]"),
-    ).toContainText("Done Reviewing");
+      storyboard.getByRole("button", { name: "Done Reviewing" }),
+    ).toBeVisible();
     await expect(storyboard.getByText("Review complete")).toBeVisible();
 
     const storyboardTop = await storyboard.evaluate(

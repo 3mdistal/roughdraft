@@ -366,11 +366,11 @@ describe("Homepage", () => {
       "Your agent can read the edited Markdown file now.",
     );
     expect(storyboard.textContent).toContain("I read your comments.");
-    expect(
-      [...storyboard.querySelectorAll("button")].find((button) =>
-        button.textContent?.includes("Done Reviewing"),
-      ),
-    ).toBeUndefined();
+    const doneReviewingButton = [...storyboard.querySelectorAll("button")].find(
+      (button) => button.textContent?.includes("Done Reviewing"),
+    );
+    expect(doneReviewingButton).toBeDefined();
+    expect(doneReviewingButton?.getAttribute("data-slot")).toBe("button");
   });
 
   it("renders the Roughdraft flavored Markdown spec page", async () => {

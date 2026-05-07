@@ -516,13 +516,10 @@ function RoughdraftPlanMock() {
           </div>
           <div className="mt-5 flex justify-end">
             <div className="homepage-workflow-done-popover">
-              <div
-                className="homepage-workflow-done-reviewing"
-                data-homepage-workflow-done-reviewing=""
-              >
+              <Button className="h-9 gap-2 px-3 text-sm" type="button">
                 <MousePointerClick className="size-4" aria-hidden="true" />
                 Done Reviewing
-              </div>
+              </Button>
               <div className="homepage-workflow-popover-card">
                 <div className="font-semibold text-slate-950 dark:text-slate-50">
                   Review complete
