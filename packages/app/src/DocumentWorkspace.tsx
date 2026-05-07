@@ -150,12 +150,34 @@ function getSaveStatusViewModel(
 export function DocumentSaveStatusIndicator({
   saveState,
   diskChangeState,
+  variant = "pill",
 }: {
   saveState: DocumentSaveState;
   diskChangeState: DiskChangeState;
+  variant?: "pill" | "inline";
 }) {
   const saveStatus = getSaveStatusViewModel(saveState, diskChangeState);
   const SaveStatusIcon = saveStatus.Icon;
+
+  if (variant === "inline") {
+    return (
+      <span
+        role="status"
+        aria-label={saveStatus.ariaLabel}
+        data-document-save-status-inline="true"
+        className="mt-0.5 inline-flex max-w-full items-center gap-1 overflow-hidden font-mono text-[0.62rem] leading-none font-semibold text-white/75 dark:text-white/75"
+      >
+        <SaveStatusIcon
+          className={cn(
+            "size-3 shrink-0",
+            saveStatus.label === "Saving" && "animate-spin",
+          )}
+          aria-hidden="true"
+        />
+        <span className="min-w-0 truncate">{saveStatus.label}</span>
+      </span>
+    );
+  }
 
   return (
     <span
@@ -435,7 +457,7 @@ export function DocumentWorkspace({
                 <Button
                   type="button"
                   size="lg"
-                  className="h-9 rounded-[7px] bg-black px-3 text-sm font-bold text-white shadow-[0_10px_28px_rgba(0,0,0,0.18)] hover:bg-black/85 focus-visible:ring-black/25 dark:bg-black dark:text-white dark:hover:bg-black/85 dark:focus-visible:ring-white/30"
+                  className="h-auto min-h-10 rounded-[7px] bg-black px-3 py-1.5 text-sm font-bold text-white shadow-[0_10px_28px_rgba(0,0,0,0.18)] hover:bg-black/85 focus-visible:ring-black/25 dark:bg-black dark:text-white dark:hover:bg-black/85 dark:focus-visible:ring-white/30"
                   disabled={isReviewHandoffDisabled({
                     saveState,
                     documentDiskChangeState,
@@ -449,7 +471,16 @@ export function DocumentWorkspace({
                       reviewHandoffState === "notifying" && "animate-spin",
                     )}
                   />
-                  {reviewHandoffButtonLabel}
+                  <span className="flex min-w-0 flex-col items-start">
+                    <span className="leading-none">
+                      {reviewHandoffButtonLabel}
+                    </span>
+                    <DocumentSaveStatusIndicator
+                      saveState={saveState}
+                      diskChangeState={documentDiskChangeState}
+                      variant="inline"
+                    />
+                  </span>
                 </Button>
               }
             />
@@ -477,7 +508,7 @@ export function DocumentWorkspace({
             </PopoverContent>
           </Popover>
         ) : null}
-        {documentPage ? (
+        {documentPage && !showReviewHandoffButton ? (
           <DocumentSaveStatusIndicator
             saveState={saveState}
             diskChangeState={documentDiskChangeState}
