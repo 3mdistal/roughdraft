@@ -16,6 +16,9 @@ test.describe("homepage workflow storyboard", () => {
     ).toBeVisible();
 
     await expect(
+      storyboard.locator("[data-homepage-workflow-scene]"),
+    ).toHaveCount(6);
+    await expect(
       storyboard.getByText("Ask for a plan", { exact: true }),
     ).toBeVisible();
     await expect(
@@ -41,6 +44,9 @@ test.describe("homepage workflow storyboard", () => {
     await expect(
       storyboard.getByText("Homepage Conversion Plan"),
     ).toBeVisible();
+    await expect(
+      storyboard.locator("[data-homepage-workflow-done-reviewing]"),
+    ).toContainText("Done Reviewing");
     await expect(storyboard.getByText("Review complete")).toBeVisible();
 
     const storyboardTop = await storyboard.evaluate(
@@ -70,10 +76,40 @@ test.describe("homepage workflow storyboard", () => {
 
     const storyboard = page.locator("[data-homepage-workflow-storyboard]");
     await expect(storyboard).toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        name: "Review an agent's plan before it starts coding.",
+      }),
+    ).toBeVisible();
+
+    await expect(
+      storyboard.getByText("Ask for a plan", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      storyboard.getByText("The agent works normally", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      storyboard.getByText("Roughdraft opens the plan", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      storyboard.getByText("Leave comments and suggestions", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      storyboard.getByText("Click Done Reviewing", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      storyboard.getByText("The agent resumes", { exact: true }),
+    ).toBeVisible();
 
     const dimensions = await page.evaluate(() => ({
       bodyScrollWidth: document.body.scrollWidth,
       documentScrollWidth: document.documentElement.scrollWidth,
+      storyboardClientWidth:
+        document.querySelector("[data-homepage-workflow-storyboard]")
+          ?.clientWidth ?? 0,
+      storyboardScrollWidth:
+        document.querySelector("[data-homepage-workflow-storyboard]")
+          ?.scrollWidth ?? 0,
       viewportWidth: window.innerWidth,
     }));
 
@@ -82,6 +118,9 @@ test.describe("homepage workflow storyboard", () => {
     );
     expect(dimensions.documentScrollWidth).toBeLessThanOrEqual(
       dimensions.viewportWidth,
+    );
+    expect(dimensions.storyboardScrollWidth).toBeLessThanOrEqual(
+      dimensions.storyboardClientWidth,
     );
 
     logE2eEvent("homepage.workflow-storyboard.mobile-overflow", dimensions);

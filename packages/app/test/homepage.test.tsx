@@ -330,6 +330,15 @@ describe("Homepage", () => {
       "Let's make the homepage more persuasive. Write a plan first.",
     );
     expect(storyboard.textContent).toContain(
+      "I'll inspect the current homepage, draft a Markdown plan, and open it in Roughdraft for review before I code.",
+    );
+    expect(storyboard.textContent).toContain(
+      'rg "It\'s just Markdown" packages/app/src',
+    );
+    expect(storyboard.textContent).toContain(
+      "sed -n '1,220p' packages/app/src/App.tsx",
+    );
+    expect(storyboard.textContent).toContain(
       "write .context/homepage-conversion-plan.md",
     );
     expect(storyboard.textContent).toContain("Homepage Conversion Plan");
@@ -337,16 +346,31 @@ describe("Homepage", () => {
       'Move the workflow story above "It\'s just Markdown."',
     );
     expect(storyboard.textContent).toContain(
+      "Show the agent pause, the review window, and the resume signal.",
+    );
+    expect(storyboard.textContent).toContain(
+      "Keep the format section as proof that the review data is portable Markdown.",
+    );
+    expect(storyboard.textContent).toContain(
       'This should go above "It\'s just Markdown."',
+    );
+    expect(storyboard.textContent).toContain(
+      "Can we make the example about homepage conversion?",
     );
     expect(storyboard.textContent).toContain(
       "Review an agent's plan before it starts coding.",
     );
+    expect(storyboard.textContent).toContain("Done Reviewing");
     expect(storyboard.textContent).toContain("Review complete");
     expect(storyboard.textContent).toContain(
       "Your agent can read the edited Markdown file now.",
     );
     expect(storyboard.textContent).toContain("I read your comments.");
+    expect(
+      [...storyboard.querySelectorAll("button")].find((button) =>
+        button.textContent?.includes("Done Reviewing"),
+      ),
+    ).toBeUndefined();
   });
 
   it("renders the Roughdraft flavored Markdown spec page", async () => {
