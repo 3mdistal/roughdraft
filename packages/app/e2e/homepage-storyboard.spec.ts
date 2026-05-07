@@ -38,15 +38,19 @@ test.describe("homepage workflow storyboard", () => {
         "Let's make the homepage more persuasive. Write a plan first.",
       ),
     ).toBeVisible();
-    await expect(storyboard.getByText("Homepage Conversion Plan")).toBeVisible();
+    await expect(
+      storyboard.getByText("Homepage Conversion Plan"),
+    ).toBeVisible();
     await expect(storyboard.getByText("Review complete")).toBeVisible();
 
     const storyboardTop = await storyboard.evaluate(
       (element) => element.getBoundingClientRect().top + window.scrollY,
     );
-    const markdownTop = await page.locator(".rfm-format-demo").evaluate(
-      (element) => element.getBoundingClientRect().top + window.scrollY,
-    );
+    const markdownTop = await page
+      .locator(".rfm-format-demo")
+      .evaluate(
+        (element) => element.getBoundingClientRect().top + window.scrollY,
+      );
     expect(storyboardTop).toBeLessThan(markdownTop);
 
     await testInfo.attach("homepage-workflow-storyboard-desktop", {

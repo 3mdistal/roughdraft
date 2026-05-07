@@ -337,7 +337,7 @@ describe("Homepage", () => {
       'Move the workflow story above "It\'s just Markdown."',
     );
     expect(storyboard.textContent).toContain(
-      "This should go above \"It's just Markdown.\"",
+      'This should go above "It\'s just Markdown."',
     );
     expect(storyboard.textContent).toContain(
       "Review an agent's plan before it starts coding.",
