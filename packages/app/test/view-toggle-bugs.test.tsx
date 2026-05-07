@@ -9,6 +9,7 @@ import {
 import {
   DocumentSaveStatusIndicator,
   DocumentWorkspace,
+  isReviewHandoffDisabled,
 } from "../src/DocumentWorkspace";
 import type { DocumentSaveState } from "../src/PageCard";
 import type {
@@ -385,6 +386,33 @@ describe("saving/saved status indicator (issue 2 fix)", () => {
     expect(
       container.querySelector('[aria-label="Save conflict"]'),
     ).not.toBeNull();
+  });
+
+  it.each([
+    ["saving", "clean"],
+    ["unsaved", "clean"],
+    ["error", "clean"],
+    ["saved", "conflict"],
+  ] satisfies Array<
+    [DocumentSaveState, "clean" | "changed" | "conflict" | "paused"]
+  >)("keeps handoff disabled for save state %s and disk state %s", (saveState, documentDiskChangeState) => {
+    expect(
+      isReviewHandoffDisabled({
+        saveState,
+        documentDiskChangeState,
+        reviewHandoffState: "idle",
+      }),
+    ).toBe(true);
+  });
+
+  it("allows handoff only when saved, conflict-free, and idle", () => {
+    expect(
+      isReviewHandoffDisabled({
+        saveState: "saved",
+        documentDiskChangeState: "clean",
+        reviewHandoffState: "idle",
+      }),
+    ).toBe(false);
   });
 });
 

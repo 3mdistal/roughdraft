@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Braces,
@@ -9,16 +8,17 @@ import {
   MessageSquare,
   PencilLine,
 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  type DocumentEditorViewMode,
-  PREVIEW_PATH,
-  ROUGHDRAFT_FLAVORED_MARKDOWN_PATH,
   buildLocationForDocumentEditorViewMode,
+  type DocumentEditorViewMode,
   formatWorkspacePathForDisplay,
   getDocumentEditorViewModeFromLocation,
   getPathLeaf,
   getRequestedPathState,
   joinPath,
+  PREVIEW_PATH,
+  ROUGHDRAFT_FLAVORED_MARKDOWN_PATH,
   syncRequestedPathInUrl,
 } from "./app-navigation";
 import { Button } from "./components/ui/button";
@@ -31,8 +31,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./components/ui/dialog";
-import { detectBackend } from "./detect-backend";
 import { DocumentWorkspace } from "./DocumentWorkspace";
+import { detectBackend } from "./detect-backend";
 import type { DocumentSaveState } from "./PageCard";
 import { PreviewBackend } from "./preview-backend";
 import { RoughdraftFormatDemo } from "./RoughdraftFormatDemo";
@@ -41,8 +41,8 @@ import {
   type Page,
   type StorageBackend,
 } from "./storage";
-import { fetchUpdateStatus, type UpdateStatus } from "./update-status";
 import { UpdateNotice } from "./UpdateNotice";
+import { fetchUpdateStatus, type UpdateStatus } from "./update-status";
 
 export type DocumentDiskChangeState =
   | "clean"
@@ -1003,8 +1003,12 @@ export function App() {
 
     applyDocumentPage(savedDocument);
     documentDirtyRef.current = false;
+    handleDocumentSaveStateChange("saved");
     setDocumentDiskChangeState("clean");
-  }, [applyDocumentPage]);
+    setDocumentForceResetKey(
+      `${currentPath}:${savedDocument.version ?? Date.now()}:overwrite`,
+    );
+  }, [applyDocumentPage, handleDocumentSaveStateChange]);
 
   const handleCompleteReview = useCallback(async () => {
     const currentBackend = backendRef.current;

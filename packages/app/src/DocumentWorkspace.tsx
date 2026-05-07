@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DocumentEditorViewMode } from "./app-navigation";
+import { RemoteSessionBanner } from "./components/RemoteSessionBanner";
 import { Button } from "./components/ui/button";
 import {
   Popover,
@@ -34,15 +35,20 @@ import {
 import { criticMarkdownHasReviewRail } from "./critic-markup";
 import { cn } from "./lib/utils";
 import {
-  PageCard,
   type DocumentInteractionMode,
   type DocumentSaveController,
   type DocumentSaveState,
+  PageCard,
 } from "./PageCard";
-import { RemoteSessionBanner } from "./components/RemoteSessionBanner";
 import type { Page, StorageBackend } from "./storage";
 
 type DiskChangeState = "clean" | "changed" | "conflict" | "paused";
+type ReviewHandoffState =
+  | "idle"
+  | "notifying"
+  | "notified"
+  | "undelivered"
+  | "error";
 
 const documentInteractionModeOptions = [
   { value: "editing", label: "editing", Icon: PencilLine },
@@ -179,6 +185,24 @@ export function DocumentSaveStatusIndicator({
   );
 }
 
+export function isReviewHandoffDisabled({
+  saveState,
+  documentDiskChangeState,
+  reviewHandoffState,
+}: {
+  saveState: DocumentSaveState;
+  documentDiskChangeState: DiskChangeState;
+  reviewHandoffState: ReviewHandoffState;
+}) {
+  return (
+    saveState === "saving" ||
+    saveState === "unsaved" ||
+    saveState === "error" ||
+    reviewHandoffState !== "idle" ||
+    documentDiskChangeState !== "clean"
+  );
+}
+
 interface DocumentWorkspaceProps {
   documentPage: Page | null;
   activeDocumentPath: string | null;
@@ -219,9 +243,8 @@ export function DocumentWorkspace({
   const [documentInteractionMode, setDocumentInteractionMode] =
     useState<DocumentInteractionMode>("editing");
   const [saveState, setSaveState] = useState<DocumentSaveState>("saved");
-  const [reviewHandoffState, setReviewHandoffState] = useState<
-    "idle" | "notifying" | "notified" | "undelivered" | "error"
-  >("idle");
+  const [reviewHandoffState, setReviewHandoffState] =
+    useState<ReviewHandoffState>("idle");
   const [reviewWatcherCount, setReviewWatcherCount] = useState(0);
   const sawNoWatcherAfterNotifiedRef = useRef(false);
   const saveControllerRef = useRef<DocumentSaveController | null>(null);
@@ -399,7 +422,10 @@ export function DocumentWorkspace({
     >
       <RemoteSessionBanner backend={backend} />
       <div
-        className="fixed top-3 right-3 z-[60] flex max-w-[min(16rem,calc(100vw-1rem))] flex-col items-end gap-1.5"
+        className={cn(
+          "fixed right-3 z-[60] flex max-w-[min(16rem,calc(100vw-1rem))] flex-col items-end gap-1.5",
+          conflictNotice ? "top-[19rem] sm:top-[7rem]" : "top-3",
+        )}
         data-document-status-stack="true"
       >
         {showReviewHandoffButton ? (
@@ -410,13 +436,11 @@ export function DocumentWorkspace({
                   type="button"
                   size="lg"
                   className="h-9 rounded-[7px] bg-black px-3 text-sm font-bold text-white shadow-[0_10px_28px_rgba(0,0,0,0.18)] hover:bg-black/85 focus-visible:ring-black/25 dark:bg-black dark:text-white dark:hover:bg-black/85 dark:focus-visible:ring-white/30"
-                  disabled={
-                    saveState === "saving" ||
-                    saveState === "unsaved" ||
-                    saveState === "error" ||
-                    reviewHandoffState !== "idle" ||
-                    documentDiskChangeState !== "clean"
-                  }
+                  disabled={isReviewHandoffDisabled({
+                    saveState,
+                    documentDiskChangeState,
+                    reviewHandoffState,
+                  })}
                   onClick={() => void handleCompleteReview()}
                 >
                   <ReviewHandoffButtonIcon
