@@ -436,6 +436,10 @@ describe("Homepage", () => {
       storyboard.querySelectorAll('[data-testid="homepage-workflow-popup"]'),
     ).toHaveLength(1);
     expect(
+      getByTestId(storyboard, "homepage-workflow-popup-traffic-lights")
+        .children,
+    ).toHaveLength(3);
+    expect(
       getByTestId(storyboard, "homepage-workflow-popup").getAttribute(
         "data-popup-visible",
       ),

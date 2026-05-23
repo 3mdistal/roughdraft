@@ -119,6 +119,18 @@ test.describe("homepage workflow storyboard", () => {
     await expect(roughdraftPopup).toHaveAttribute("data-popup-visible", "true");
     await expect(roughdraftPopup).not.toHaveAttribute("aria-hidden", "true");
     await expect(
+      roughdraftPopup.getByTestId("homepage-workflow-popup-traffic-lights"),
+    ).toHaveCount(1);
+    await expect(
+      roughdraftPopup
+        .getByTestId("homepage-workflow-popup-traffic-lights")
+        .locator("span"),
+    ).toHaveCount(3);
+    await expect(roughdraftPopup.locator("> div").first()).toHaveCSS(
+      "background-color",
+      "rgb(255, 255, 255)",
+    );
+    await expect(
       storyboard.getByTestId("homepage-workflow-document-title"),
     ).toBeVisible();
     await expect(
