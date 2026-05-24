@@ -1,5 +1,5 @@
-import type { AddressInfo } from "node:net";
 import fs from "node:fs";
+import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -265,9 +265,11 @@ describe("createApp", () => {
       staticDirPath: projectDir,
     });
 
-    const response = await request(app)
-      .post("/api/review-events")
-      .send({ projectPath: projectDir, path: "draft.md" });
+    const response = await request(app).post("/api/review-events").send({
+      projectPath: projectDir,
+      path: "draft.md",
+      overallComment: "Please address the risk section.",
+    });
 
     expect(response.status).toBe(201);
     expect(response.body).toMatchObject({
@@ -278,6 +280,7 @@ describe("createApp", () => {
         projectPath: projectDir,
         relativePath: "draft.md",
         sequence: 1,
+        overallComment: "Please address the risk section.",
         summary: {
           comments: 1,
           replies: 0,
@@ -288,6 +291,44 @@ describe("createApp", () => {
     });
     expect(response.body.event.version).toEqual(expect.any(String));
     expect(response.body.event.createdAt).toEqual(expect.any(String));
+  });
+
+  it("omits whitespace-only overall comments from review events", async () => {
+    fs.writeFileSync(path.join(projectDir, "draft.md"), "# Draft\n");
+    const { app } = createApp({
+      homeDir,
+      staticDirPath: projectDir,
+    });
+
+    const response = await request(app).post("/api/review-events").send({
+      projectPath: projectDir,
+      path: "draft.md",
+      overallComment: "   \n\t  ",
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.body.event).not.toHaveProperty("overallComment");
+  });
+
+  it("rejects over-limit overall comments", async () => {
+    fs.writeFileSync(path.join(projectDir, "draft.md"), "# Draft\n");
+    const { app } = createApp({
+      homeDir,
+      staticDirPath: projectDir,
+    });
+
+    const response = await request(app)
+      .post("/api/review-events")
+      .send({
+        projectPath: projectDir,
+        path: "draft.md",
+        overallComment: "x".repeat(4001),
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: "overallComment must be 4000 characters or fewer",
+    });
   });
 
   it("rejects review events without a projectPath", async () => {
