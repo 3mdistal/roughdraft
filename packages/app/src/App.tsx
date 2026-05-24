@@ -420,11 +420,11 @@ export function Homepage({
                 <DialogTrigger
                   render={
                     <Button
-                      className="h-14 gap-2 px-5 text-[clamp(1.25rem,1rem+0.6vw,1.5rem)]"
+                      className="h-14 cursor-pointer gap-2 px-5 text-[clamp(1.25rem,1rem+0.6vw,1.5rem)]"
                       data-testid="homepage-install-button"
                       size="lg"
                     >
-                      Install Now
+                      Install now
                     </Button>
                   }
                 />
