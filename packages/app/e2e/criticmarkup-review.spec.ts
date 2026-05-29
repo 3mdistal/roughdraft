@@ -114,9 +114,9 @@ test.describe("CriticMarkup review flows", () => {
     await selectRichText(page, "target text");
 
     await page.getByTestId("selection-menu-action-bold").hover();
-    await expect(
-      page.locator('[data-slot="tooltip-content"][data-open]'),
-    ).toHaveText("Bold");
+    await expect(page.getByTestId("selection-menu-action-tooltip")).toHaveText(
+      "Bold",
+    );
 
     await expect(
       page.getByTestId("selection-menu-action-suggest-insertion"),
@@ -129,9 +129,9 @@ test.describe("CriticMarkup review flows", () => {
     ).toHaveCount(0);
 
     await page.getByTestId("selection-menu-action-comment").hover();
-    await expect(
-      page.locator('[data-slot="tooltip-content"][data-open]'),
-    ).toHaveCount(0);
+    await expect(page.getByTestId("selection-menu-action-tooltip")).toHaveCount(
+      0,
+    );
   });
 
   test("accepts and rejects suggested changes on disk @smoke", async ({

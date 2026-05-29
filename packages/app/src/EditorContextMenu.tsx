@@ -196,7 +196,9 @@ function SelectionMenuButton({
   return (
     <Tooltip>
       <TooltipTrigger render={button} />
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent data-testid="selection-menu-action-tooltip">
+        {label}
+      </TooltipContent>
     </Tooltip>
   );
 }
