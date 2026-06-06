@@ -128,6 +128,38 @@ describe("CriticMarkup comments", () => {
     expect(output).not.toContain('<<}{id="c1"');
   });
 
+  it("does not render raw legacy metadata when blockquoted inline comment bodies contain blank quoted lines", () => {
+    const input = [
+      "> {==Come by the shop after school. I want to show you something.==}{>>maybe it's not that June actually upgrades Dani's bike as much as she's imagining what June might add.",
+      ">",
+      "> this gives the game a natural, beautiful arc: we are on our way to June, always imagining what she might say.<<}{id=\"c1\" by=\"user\" at=\"2026-06-06T15:46:00.000Z\"}",
+      "",
+      "Next paragraph should render normally.",
+      "",
+    ].join("\n");
+
+    const { html, comments } = criticMarkdownToRenderedHtml(input);
+    const renderedText =
+      new DOMParser().parseFromString(html, "text/html").body.textContent ?? "";
+
+    expect(renderedText).not.toContain('<<}{id="c1"');
+    expect(renderedText).toContain("Next paragraph should render normally.");
+    expect(comments.get("c1")).toMatchObject({
+      id: "c1",
+      content:
+        "maybe it's not that June actually upgrades Dani's bike as much as she's imagining what June might add.\n\nthis gives the game a natural, beautiful arc: we are on our way to June, always imagining what she might say.",
+      authorType: "user",
+    });
+
+    const parsed = criticMarkdownToEditorState(input);
+    const output = editorStateToCriticMarkdown(parsed.doc, parsed.comments);
+
+    expect(output).toContain("{>><<}{#c1}");
+    expect(output).toContain("comments:");
+    expect(output).toContain("c1:");
+    expect(output).not.toContain('<<}{id="c1"');
+  });
+
   it("renders YAML endmatter-backed root comments and replies", () => {
     const input = [
       "This is {==highlighted==}{>>comment text<<}{#c1} text.",

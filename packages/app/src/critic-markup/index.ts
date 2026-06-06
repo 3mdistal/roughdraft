@@ -78,6 +78,8 @@ const metadataAttributePattern =
   /([A-Za-z][A-Za-z0-9_-]*)="((?:\\[\s\S]|[^"\\])*)"/g;
 const metadataReferencePattern = /^\{#([A-Za-z][A-Za-z0-9_-]*)\}$/;
 const multilineCommentBodyPattern = /\r?\n[ \t]*\r?\n/;
+const blockquoteCommentLinePattern = /\r?\n[ \t]*>[ \t]?/;
+const blockquoteCommentLineGlobalPattern = /\r?\n[ \t]*>[ \t]?/g;
 const unanchoredCommentSentinel = "\u2060";
 
 interface ParsedEndmatter {
@@ -380,6 +382,17 @@ function collectLiteralMarkdownRanges(markdown: string) {
   ].sort((left, right) => left.start - right.start || left.end - right.end);
 }
 
+function shouldMoveLegacyCommentBodyToEndmatter(commentText: string): boolean {
+  return (
+    multilineCommentBodyPattern.test(commentText) ||
+    blockquoteCommentLinePattern.test(commentText)
+  );
+}
+
+function normalizeLegacyCommentBody(commentText: string): string {
+  return commentText.replace(blockquoteCommentLineGlobalPattern, "\n");
+}
+
 function findContainingRange(
   ranges: Array<{ start: number; end: number }>,
   offset: number,
@@ -447,7 +460,7 @@ function normalizeLegacyMultilineComments(
       const fields = parseMetadataAttributeFields(metadataText);
       const id = fields.get("id");
 
-      if (!id || !multilineCommentBodyPattern.test(commentText)) {
+      if (!id || !shouldMoveLegacyCommentBodyToEndmatter(commentText)) {
         normalized += body.slice(nextOffset, metadataEnd);
         nextOffset = metadataEnd;
         continue;
@@ -460,7 +473,7 @@ function normalizeLegacyMultilineComments(
 
       const entry: Record<string, unknown> = {
         ...(nextEndmatter.comments.get(id) ?? {}),
-        body: commentText,
+        body: normalizeLegacyCommentBody(commentText),
         by: fields.get("by") ?? "user",
         at: fields.get("at") ?? new Date().toISOString(),
       };
